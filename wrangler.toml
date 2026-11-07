@@ -13,4 +13,4 @@ OUTPUT_KEY = "calendar.ics"
 
 [[r2_buckets]]
 binding = "BUCKET"
-bucket_name = "outlook_calendar_from_gcal"
+bucket_name = "outlook-calendar-from-gcal"
