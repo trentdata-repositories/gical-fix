@@ -1,0 +1,16 @@
+name = "gcal-to-outlook"
+main = "src/index.js"
+compatibility_date = "2026-11-07"
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[vars]
+TZ = "America/Toronto"
+TZ_URL = "https://tzurl.org/zoneinfo-outlook/"
+ICS_URL = ""
+OUTPUT_KEY = "calendar.ics"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "outlook_calendar_from_gcal"
