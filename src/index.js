@@ -158,8 +158,10 @@ export default {
       if(!l) return;
 
       // Place VTIMEZONE in the iCalendar.
-      if(l.startsWith("BEGIN:VEVENT") && placedVtz == false)
+      if(l.startsWith("BEGIN:VEVENT") && placedVtz == false) {
         linesNew.push(...vtz);
+        placedVtz = true;
+      }
 
       // Modify properties containing times.
       if(props.some(p => l.startsWith(p + ":"))) {
