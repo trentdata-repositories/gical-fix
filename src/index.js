@@ -151,10 +151,15 @@ export default {
     }
 
     // --- Convert iCalendar Times
+    var placedVtz = false;
     const linesNew = [];
     lines.forEach(l => {
       // Skip empty lines.
       if(!l) return;
+
+      // Place VTIMEZONE in the iCalendar.
+      if(l.startsWith("BEGIN:VEVENT") && placedVtz == false)
+        linesNew.push(...vtz);
 
       // Modify properties containing times.
       if(props.some(p => l.startsWith(p + ":"))) {
@@ -181,8 +186,6 @@ export default {
         catch(e) { console.error('Time conversion error:', e); }
       }
 
-      // Place VTIMEZONE in the iCalendar.
-      else if("END:VCALENDAR" === l) linesNew.push(...vtz); // Add VTIMEZONE block (not present in Google Calendar iCalendar files).
       linesNew.push(fold(l));
     });
 
