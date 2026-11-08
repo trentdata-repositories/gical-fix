@@ -2,6 +2,9 @@ name = "gcal-to-outlook"
 main = "src/index.js"
 compatibility_date = "2026-11-07"
 
+[observability]
+enabled = true
+
 [triggers]
 crons = ["*/15 * * * *"]
 

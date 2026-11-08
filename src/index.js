@@ -68,7 +68,10 @@ async function write(env, path, content) {
     }
   });
 
-  if(cur.ok && (await cur.text()) === content) return;
+  if(cur.ok && (await cur.text()) === content) {
+    console.log("Calendar has not changed, skipping commit...");
+    return;
+  }
 
   const tree = await repo("POST", "/git/trees", {
     tree: [
@@ -97,6 +100,8 @@ async function write(env, path, content) {
     sha: commit.sha,
     force: true
   })
+
+  console.log("New calendar was committed: " + commit.sha);
 }
 
 // === TIME TRIGGERED EVENT ===
