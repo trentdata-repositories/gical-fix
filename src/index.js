@@ -163,6 +163,11 @@ export default {
         placedVtz = true;
       }
 
+      if(l.startsWith("X-WR-TIMEZONE:")) {
+        linesNew.push("X-WR-TIMEZONE:" + env.TZ);
+        return;
+      }
+
       // Modify properties containing times.
       if(props.some(p => l.startsWith(p + ":"))) {
 
