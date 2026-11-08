@@ -163,6 +163,7 @@ export default {
         placedVtz = true;
       }
 
+      // Replace default X-WR-TIMEZONE iCalendar timezone
       if(l.startsWith("X-WR-TIMEZONE:")) {
         linesNew.push("X-WR-TIMEZONE:" + env.TZ);
         return;
