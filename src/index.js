@@ -80,12 +80,6 @@ async function write(env, path, content) {
         mode: "100644",
         type: "blob",
         content
-      },
-      {
-        path: ".nojekyll",
-        mode: "100644",
-        type: "blob",
-        content: ""
       }
     ]
   });
@@ -108,28 +102,6 @@ async function write(env, path, content) {
 export default {
   async scheduled(event, env, ctx) {
 
-    // --- Grab VTIMEZONE iCalendar file
-    let vtz;
-    try {
-      const r = await fetch(env.TZ_URL + env.TZ);
-        
-      if(!r.ok)
-        throw new Error("HTTP error! Status: " + r.status);
-
-      const cal = (await r.text()).replace(/\r?\n[ \t]/g, "");
-      const match = cal.match(/BEGIN:VTIMEZONE[\s\S]*?END:VTIMEZONE/);
-
-      if(!match)
-        throw new Error("Returned File has no VTIMEZONE in response!\n" + cal);
-
-      vtz = match[0].split(/\r?\n/);
-
-    }
-    catch(e) {
-      console.error("Fetch failed:", e)
-      return;
-    }
-
     // --- Grab iCalendar
     let lines;
     try {
@@ -151,23 +123,10 @@ export default {
     }
 
     // --- Convert iCalendar Times
-    var placedVtz = false;
     const linesNew = [];
     lines.forEach(l => {
       // Skip empty lines.
       if(!l) return;
-
-      // Place VTIMEZONE in the iCalendar.
-      if(l.startsWith("BEGIN:VEVENT") && placedVtz == false) {
-        linesNew.push(...vtz);
-        placedVtz = true;
-      }
-
-      // Replace default X-WR-TIMEZONE iCalendar timezone
-      if(l.startsWith("X-WR-TIMEZONE:")) {
-        linesNew.push("X-WR-TIMEZONE:" + env.TZ);
-        return;
-      }
 
       // Modify properties containing times.
       if(props.some(p => l.startsWith(p + ":"))) {
@@ -178,11 +137,8 @@ export default {
 
           // Convert each time into desired timezone string in proper format.
           const times = comps.slice(1).map(t => {
-            return Temporal.Instant.from(t)
-              .toZonedDateTimeISO(env.TZ)
-              .toPlainDateTime()
-              .toString({ smallestUnit: 'second' })
-              .replaceAll(/[:-]/g, "");
+            if(t.endsWith('Z')) return t.slice(0, -1);
+            else return t;
           });
 
           // Push newly modified line to the modified iCalendar array.

@@ -13,5 +13,3 @@ ICS_URL = "https://calendar.google.com/calendar/ical/c_91123c3fa558dcd581cc78e8c
 OUTPUT_KEY = "calendar.ics"
 REPO_API = "https://api.github.com/repos/trentdata-repositories/icalendar-host-page"
 REPO_BRANCH = "main"
-TZ = "America/Toronto"
-TZ_URL = "https://tzurl.org/zoneinfo-outlook/"
