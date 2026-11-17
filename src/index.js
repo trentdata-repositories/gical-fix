@@ -80,6 +80,12 @@ async function write(env, path, content) {
         mode: "100644",
         type: "blob",
         content
+      },
+      {
+        path: ".nojekyll",
+        mode: "100644",
+        type: "blob",
+        content: ""
       }
     ]
   });
@@ -128,26 +134,27 @@ export default {
       // Skip empty lines.
       if(!l) return;
 
+      var TZ;
+
+      if(l.startsWith("X-WR-TIMEZONE:")) {
+        TZ = l.split(/[:]/)[1];
+      }
+
       // Modify properties containing times.
       if(props.some(p => l.startsWith(p + ":"))) {
 
         // Get property [0] (separated by ':') and times [1]+ (separated by ',').
-        try {
-          const comps = l.split(/[:,]/);
+        const comps = l.split(/[:,]/);
 
-          // Convert each time into desired timezone string in proper format.
-          const times = comps.slice(1).map(t => {
-            if(t.endsWith('Z')) return t.slice(0, -1);
-            else return t;
-          });
+        // Convert each time into desired timezone string in proper format.
+        const times = comps.slice(1).map(t => {
+          if(t.endsWith('Z')) return t.slice(0, -1)
+          else return t;
+        });
 
-          // Push newly modified line to the modified iCalendar array.
-          linesNew.push(fold(comps[0] + ";TZID=" + env.TZ + ":" + times.join(",")));
-          return;
-
-        // Catch time conversion errors. Typically when time does not end in 'Z'. Default to leaving the line.
-        }
-        catch(e) { console.error('Time conversion error:', e); }
+        // Push newly modified line to the modified iCalendar array.
+        linesNew.push(fold(comps[0] + ";TZID=" + TZ + ":" + times.join(",")));
+        return;
       }
 
       linesNew.push(fold(l));
