@@ -3,24 +3,6 @@ const props = ["DTSTART", "DTEND", "RECURRENCE-ID", "EXDATE", "RDATE", "DUE"];
 const dscr = "DESCRIPTION";
 
 // === HELPERS === 
-const txtEscape = t => t
-  .replace(/\\/g, "\\\\")
-  .replace(/;/g, "\\;")
-  .replace(/,/g, "\\,")
-  .replace(/\r?\n/g, "\\n");
-
-const txtUnescape = t => t
-  .replace(/\\([\\;,nN])/g, (_, c) => (c === "n" || c === "N") ? "\n" : c);
-
-const htmlToTxt = h => h
-  .replace(/<br\s*\/?>/gi, "\n")
-  .replace(/<li[^>]*>/gi, "\n• ")
-  .replace(/<\/(p|div|ul|ol|h[1-6])>/gi, "\n")
-  .replace(/<[^>]+>/g, "")
-  .replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-  .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&")
-  .replace(/\n{3,}/g, "\n\n")
-  .trim();
 /* --- Fold Lines w/ 75+ Octets (RFC 5545 §3.1)
  * Long lines greater than 75 octets will be moved to the next line w/ a
  * leading space character as per the RFC-defined format.
@@ -159,7 +141,7 @@ export default {
       // Convert DESCRIPTION into Outlook compatible format
       if(l.startsWith(dscr)) {
         const dscrTxt = l.slice(l.indexOf(":") + 1);
-        linesNew.push(fold(dscr + ":" + txtEscape(htmlToTxt((txtUnescape(dscrTxt))))));
+        linesNew.push(fold(dscr + ":" + dscrTxt));
         linesNew.push(fold("X-ALT-DESC;FMTTYPE=text/html:" + dscrTxt));
         return;
       }
