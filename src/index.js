@@ -130,11 +130,10 @@ export default {
 
     // --- Convert iCalendar Times
     const linesNew = [];
+    var TZ;
     lines.forEach(l => {
       // Skip empty lines.
       if(!l) return;
-
-      var TZ;
 
       if(l.startsWith("X-WR-TIMEZONE:")) {
         TZ = l.split(/[:]/)[1];
