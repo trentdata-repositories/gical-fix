@@ -1,7 +1,3 @@
-// === GLOBAL VARIABLES ===
-const props = ["DTSTART", "DTEND", "RECURRENCE-ID", "EXDATE", "RDATE", "DUE"];
-const dscr = "DESCRIPTION";
-
 // === HELPERS === 
 /* --- Fold Lines w/ 75+ Octets (RFC 5545 §3.1)
  * Long lines greater than 75 octets will be moved to the next line w/ a
@@ -39,7 +35,7 @@ function fold(l) {
 }
 
 /* --- Write to Remote Repository */
-async function write(env, path, content) {
+async function write(env, path, pathApple, calendarNew, calendarNewApple) {
   const headers = {
     Authorization: `Bearer ${env.GITHUB_TOKEN}`,
     "User-Agent": "ics-worker",
@@ -59,25 +55,19 @@ async function write(env, path, content) {
     return r.json();
   }
 
-  const cur = await fetch(`${env.REPO_API}/contents/${path}?ref=${env.REPO_BRANCH}`, {
-    headers: {
-      ...headers,
-      Accept: "application/vnd.github.raw+json"
-    }
-  });
-
-  if(cur.ok && (await cur.text()) === content) {
-    console.log("Calendar has not changed, skipping commit...");
-    return;
-  }
-
   const tree = await repo("POST", "/git/trees", {
     tree: [
       {
-        path,
+        path: path,
         mode: "100644",
         type: "blob",
-        content
+        content: calendarNew
+      },
+      {
+        path: pathApple,
+        mode: "100644",
+        type: "blob",
+        content: calendarNewApple
       },
       {
         path: ".nojekyll",
@@ -100,6 +90,32 @@ async function write(env, path, content) {
   })
 
   console.log("New calendar was committed: " + commit.sha);
+}
+
+function gcalHtmlToPlain(html) {
+  return html
+    .replace(/\\([\\;,nN])/g, (_, c) => (c === "n" || c === "N") ? "\n" : c)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|ul|ol|h[1-6])>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<a\s[^>]*?href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, text) => {
+      text = text.replace(/<[^>]+>/g, "").trim();
+      return (!text || text === href) ? href : `${text} (${href})`;
+    })
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&amp;/gi, "&")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n");
 }
 
 // === TIME TRIGGERED EVENT ===
@@ -126,52 +142,57 @@ export default {
       return;
     }
 
-    // --- Convert iCalendar Times
-    const linesNew = [];
-    var TZ;
+    // --- Preliminary iCalendar screening
+    var attachments = [];
     lines.forEach(l => {
-      // Skip empty lines.
       if(!l) return;
 
-      // Get calendar timezone
-      if(l.startsWith("X-WR-TIMEZONE")) {
-        TZ = l.split(/[:]/)[1];
+      // Grab attachments
+      if(l.startsWith("ATTACH")) {
+        const match = l.match(/^ATTACH(;[^:]+)*:((?:[a-zA-Z][a-zA-Z0-9+.-]*):\/\/?.*)$/);
+        if(!match) return;
+
+        const fileName = l.match(/;FILENAME="?([^";]+)"?/i)?.[1] ?? null;
+        attachments.push([fileName, match[2]])
       }
-
-      // Convert DESCRIPTION into Outlook compatible format
-      if(l.startsWith(dscr)) {
-        const dscrTxt = l.slice(l.indexOf(":") + 1);
-        linesNew.push(fold(dscr + ":" + dscrTxt));
-        linesNew.push(fold("X-ALT-DESC;FMTTYPE=text/html:" + dscrTxt));
-        return;
-      }
-
-      // Modify properties containing times.
-      if(props.some(p => l.startsWith(p + ":"))) {
-
-        // Get property [0] (separated by ':') and times [1]+ (separated by ',').
-        const comps = l.split(/[:,]/);
-
-        // Convert each time into desired timezone string in proper format.
-        const times = comps.slice(1).map(t => {
-          if(t.endsWith('Z')) return t.slice(0, -1)
-          else return t;
-        });
-
-        // Push newly modified line to the modified iCalendar array.
-        linesNew.push(fold(comps[0] + ";TZID=" + TZ + ":" + times.join(",")));
-        return;
-      }
-
-      linesNew.push(fold(l));
     });
 
-    // Join all new iCalendar files into one string for writing to file in repo.
-    const calNew = linesNew.join("\r\n") + "\r\n";
+    // --- Convert to compatible formats
+    let linesNew = [], linesNewApple = [];
+    if(!env.SOURCE_HTML || env.SOURCE_HTML === "false") {
+      linesNew = lines.filter(Boolean).map(l => fold(l));
+      linesNewApple = linesNew;
+
+    } else {
+      lines.forEach(l => {
+
+        // Skip empty lines.
+        if(!l) return;
+
+        // Copy DESCRIPTION into X-ALT-DESC for Outlook clients
+        if(l.startsWith("DESCRIPTION")) {
+          const description = l.slice(l.indexOf(":") + 1);
+          linesNew.push(fold("DESCRIPTION:" + description));
+          linesNew.push(fold("X-ALT-DESC;FMTTYPE=text/html:" + description));
+          linesNewApple.push(fold("DESCRIPTION:" + gcalHtmlToPlain(description)))
+          return;
+        }
+
+        const foldedLine = fold(l);
+        linesNew.push(foldedLine);
+        linesNewApple.push(foldedLine);
+      });
+    }
 
     // Overwrite the old file in repo.
     try {
-      await write(env, env.OUTPUT_KEY, calNew);
+      await write(
+        env,
+        env.OUTPUT_KEY,
+        env.OUTPUT_KEY_APPLE,
+        linesNew.join("\r\n") + "\r\n",
+        linesNewApple.join("\r\n") + "\r\n"
+      );
     }
     catch (e) {
       console.error("Failed to write to repository!\n", e);
